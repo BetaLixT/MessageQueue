@@ -16,9 +16,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 
-namespace Vrsad.ToolKit
+namespace VRSAD.ToolKit
 {
- 
+
     public class MessageQueue
     {
 
@@ -26,6 +26,7 @@ namespace Vrsad.ToolKit
         private Mutex        pullLock;
         private SpinWait     spin;
         private List<string> msgQueue;
+        
 
         /*
          * Default MessageQueue constructor
@@ -41,7 +42,7 @@ namespace Vrsad.ToolKit
         }
 
         /*
-         * Function waitAndPullTop
+         * Function WaitAndPullTop
          * 
          * IN   : -
          * OUT  : string
@@ -49,7 +50,7 @@ namespace Vrsad.ToolKit
          *        of the queue, if no message exists it waits for
          *        a message to be pushed. Is thread safe.
          */
-        public string waitAndPullTop()
+        public string WaitAndPullTop()
         {
             pullLock.WaitOne();
 
@@ -65,7 +66,7 @@ namespace Vrsad.ToolKit
         }
 
         /*
-         * Function waitAndPullTop
+         * Function WaitAndPullTop
          * 
          * IN   : ms: int
          * OUT  : string
@@ -75,7 +76,7 @@ namespace Vrsad.ToolKit
          *        returns null if no message has been pushed. Is
          *        thead safe.
          */
-        public string waitAndPullTop(int ms)
+        public string WaitAndPullTop(int ms)
         {
 
             if (!pullLock.WaitOne(ms))
@@ -102,6 +103,50 @@ namespace Vrsad.ToolKit
         }
 
         /*
+         * Function WaitInBackgroundAndCallBack
+         * 
+         * IN   : callBack: Action<string>
+         * OUT  : void
+         * DESC : This function returns after creating a thread
+         *        that will pull a message from the top of the 
+         *        queue, if no message exists it waits for a message 
+         *        to be pushed. The pulled message is passed as an
+         *        argument to the callback function. Is thread safe
+         */
+        public void WaitInBackgroundAndCallBack(Action<string> callBack)
+        {
+            System.Threading.Thread pullMessageJob = new System.Threading.Thread(WaitAndCallBack);
+            pullMessageJob.Start(callBack);
+        }
+
+        /*
+         * Function waitAndCallBack
+         * 
+         * IN   : callBack: Action<string>
+         * OUT  : void
+         * DESC : This function will pull a message from the top of the 
+         *        queue, if no message exists it waits for a message 
+         *        to be pushed. The pulled message is passed as an
+         *        argument to the callback function. Is thread safe
+         */
+        public void WaitAndCallBack (object data)
+        {
+            pullLock.WaitOne();
+
+            while (msgQueue.Count == 0)
+                spin.SpinOnce();
+
+            string tosend = msgQueue[0];
+            msgQueue.RemoveAt(0);
+
+            pullLock.ReleaseMutex();
+
+
+            Action<string> callBack = data as Action<string>;
+            callBack(tosend);
+        }
+
+        /*
          * Function pushMsg
          * 
          * IN   : msg: string
@@ -109,7 +154,7 @@ namespace Vrsad.ToolKit
          * DESC : This function will push a message to the end of
          *        the queue. Is thread safe.
          */
-        public void pushMsg(string msg)
+        public void PushMsg(string msg)
         {
             pushLock.WaitOne();
 
